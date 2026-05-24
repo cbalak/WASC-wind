@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #f9fafb;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 12px;
+    }
+    .header {
+      display: flex; align-items: center; gap: 8px;
+      padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; margin-bottom: 12px;
+    }
+    .logo { font-weight: 700; color: #059669; font-size: 16px; }
+    .subtitle { font-size: 11px; color: #6b7280; }
+    .card {
+      background: white; border-radius: 8px; border: 1px solid #e5e7eb;
+      padding: 10px; margin-bottom: 8px;
+    }
+    .card-title { font-size: 12px; font-weight: 600; color: #111827; margin-bottom: 6px; }
+    .stat-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+    .stat-label { color: #6b7280; }
+    .stat-value { font-weight: 600; color: #111827; }
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      padding: 2px 6px; border-radius: 999px; margin-right: 4px;
+    }
+    .badge-red { background: #fee2e2; color: #991b1b; }
+    .badge-orange { background: #ffedd5; color: #9a3412; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+    .btn {
+      width: 100%; padding: 8px; border-radius: 6px; border: none;
+      font-size: 12px; font-weight: 600; cursor: pointer; margin-top: 6px;
+    }
+    .btn-primary { background: #059669; color: white; }
+    .btn-primary:hover { background: #047857; }
+    .btn-secondary { background: white; color: #374151; border: 1px solid #d1d5db; }
+    .ai-draft {
+      background: #f3f4f6; border-radius: 6px; padding: 8px; font-size: 12px;
+      color: #374151; margin-top: 6px; line-height: 1.4;
+    }
+    .status { font-size: 11px; color: #6b7280; margin-top: 8px; text-align: center; }
+    .status-dot {
+      display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+      margin-right: 4px;
+    }
+    .status-dot.ok { background: #10b981; }
+    .status-dot.err { background: #ef4444; }
+    input[type="text"] {
+      width: 100%; padding: 6px 8px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 12px; margin-bottom: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <div class="logo">WACC</div>
+      <div class="subtitle">WhatsApp Command Centre</div>
+    </div>
+  </div>
+
+  <div id="auth-section" class="card" style="display:none">
+    <div class="card-title">Connect to Backend</div>
+    <input type="text" id="api-key" placeholder="Enter your API key" />
+    <button class="btn btn-primary" id="connect-btn">Connect</button>
+    <div class="status" id="auth-status"></div>
+  </div>
+
+  <div id="dashboard-section">
+    <div class="card">
+      <div class="card-title">Live Stats</div>
+      <div class="stat-row"><span class="stat-label">New leads today</span><span class="stat-value" id="new-leads">-</span></div>
+      <div class="stat-row"><span class="stat-label">Waiting replies</span><span class="stat-value" id="waiting">-</span></div>
+      <div class="stat-row"><span class="stat-label">Hot opportunities</span><span class="stat-value" id="hot">-</span></div>
+      <div class="stat-row"><span class="stat-label">Support fires</span><span class="stat-value" id="fires">-</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Current Chat</div>
+      <div class="stat-row"><span class="stat-label">Contact</span><span class="stat-value" id="current-contact">-</span></div>
+      <div class="stat-row"><span class="stat-label">Lead Score</span><span class="stat-value" id="lead-score">-</span></div>
+      <div style="margin-top:6px">
+        <span class="badge badge-orange" id="rev-badge" style="display:none">Revenue</span>
+        <span class="badge badge-red" id="risk-badge" style="display:none">Support Risk</span>
+      </div>
+      <button class="btn btn-secondary" id="ai-draft-btn">Generate AI Draft</button>
+      <div class="ai-draft" id="ai-draft-result" style="display:none"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Quick Actions</div>
+      <button class="btn btn-secondary" id="sync-btn">Sync to CRM</button>
+      <button class="btn btn-secondary" id="create-task-btn">Create Follow-up Task</button>
+    </div>
+
+    <div class="status">
+      <span class="status-dot ok" id="status-dot"></span>
+      <span id="conn-status">Connected</span>
+    </div>
+  </div>
+
+  <script src="sidebar.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+/* Minimal CSS injected into WhatsApp Web page for sidebar positioning */
+#wacc-sidebar {
+  transition: transform 0.2s ease;
+}
+
+#wacc-sidebar.collapsed {
+  transform: translateX(100%);
+}

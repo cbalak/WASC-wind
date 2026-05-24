@@ -1,0 +1,427 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ======================= TENANCY & USERS =======================
+
+model Tenant {
+  id                String    @id @default(cuid())
+  name              String
+  slug              String    @unique
+  plan              String    @default("trial")
+  licenceStatus     String    @default("trial")
+  licenceExpiry     DateTime
+  resellerId        String?
+  whiteLabelEnabled Boolean   @default(false)
+  branding          Json?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  users             User[]
+  contacts          Contact[]
+  conversations     Conversation[]
+  messages          Message[]
+  tasks             Task[]
+  crmConnections    CRMConnection[]
+  whatsappAccounts  WhatsAppAccount[]
+  aiActions         AIAction[]
+  auditLogs         AuditLog[]
+  quickReplies      QuickReply[]
+  automationRules   AutomationRule[]
+  analytics         AnalyticsDaily[]
+  usageRecords      UsageRecord[]
+
+  @@index([slug])
+  @@index([licenceStatus])
+  @@index([resellerId])
+}
+
+model User {
+  id             String   @id @default(cuid())
+  tenantId       String
+  email          String
+  name           String
+  passwordHash   String
+  role           String   @default("agent")
+  avatar         String?
+  mfaEnabled     Boolean  @default(false)
+  mfaSecret      String?
+  lastLoginAt    DateTime?
+  refreshToken   String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedConvos Conversation[] @relation("Assignee")
+  aiActions      AIAction[]
+  auditLogs      AuditLog[]
+  createdTasks   Task[]   @relation("TaskCreator")
+  assignedTasks  Task[]   @relation("TaskAssignee")
+
+  @@unique([tenantId, email])
+  @@index([tenantId, role])
+}
+
+// ======================= LICENCE & BILLING =======================
+
+model Plan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  displayName   String
+  description   String?
+  priceMonthly  Int
+  priceYearly   Int
+  seats         Int
+  aiActionLimit Int      @default(100)
+  crmSyncLimit  Int      @default(500)
+  storageGb     Int      @default(1)
+  features      Json     @default("{}")
+  isPublic      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+}
+
+model UsageRecord {
+  id            String   @id @default(cuid())
+  tenantId      String
+  periodStart   DateTime
+  periodEnd     DateTime
+  aiActionsUsed Int      @default(0)
+  crmSyncsUsed  Int      @default(0)
+  messagesCount Int      @default(0)
+  storageUsedMb Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, periodStart])
+  @@index([tenantId, periodEnd])
+}
+
+// ======================= WHATSAPP =======================
+
+model WhatsAppAccount {
+  id          String   @id @default(cuid())
+  tenantId    String
+  phoneNumber String
+  displayName String
+  mode        String   @default("web")
+  status      String   @default("pending")
+  connectedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phoneNumber])
+}
+
+model Contact {
+  id            String   @id @default(cuid())
+  tenantId      String
+  phoneNumber   String
+  name          String?
+  email         String?
+  company       String?
+  tags          String[] @default([])
+  notes         String?
+  crmContactId  String?
+  leadScore     Int      @default(0)
+  lastMessageAt DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversations Conversation[]
+  tasks         Task[]
+
+  @@unique([tenantId, phoneNumber])
+  @@index([tenantId, leadScore])
+  @@index([tenantId, lastMessageAt])
+}
+
+model Conversation {
+  id                String   @id @default(cuid())
+  tenantId          String
+  contactId         String
+  assigneeId        String?
+  status            String   @default("new")
+  priority          String   @default("medium")
+  tags              String[] @default([])
+  source            String   @default("whatsapp_web")
+  unreadCount       Int      @default(0)
+  lastMessageAt     DateTime?
+  snoozedUntil      DateTime?
+  followUpAt        DateTime?
+  aiAutonomyLevel   Int      @default(0)
+  revenueOpportunity Boolean @default(false)
+  supportRisk       Boolean  @default(false)
+  sentimentScore    Float    @default(0)
+  healthScore       Int      @default(50)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  contact           Contact    @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  assignee          User?      @relation("Assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  messages          Message[]
+  tasks             Task[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId])
+  @@index([tenantId, priority])
+  @@index([tenantId, revenueOpportunity])
+  @@index([tenantId, supportRisk])
+  @@index([tenantId, followUpAt])
+  @@index([tenantId, lastMessageAt])
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  conversationId String
+  tenantId      String
+  senderType    String   @default("contact")
+  senderId      String?
+  content       String
+  messageType   String   @default("text")
+  metadata      Json?
+  aiGenerated   Boolean  @default(false)
+  aiConfidence  Float?
+  approvedBy    String?
+  createdAt     DateTime @default(now())
+
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, conversationId])
+  @@index([tenantId, createdAt])
+  @@index([conversationId, createdAt])
+}
+
+// ======================= TASKS & REMINDERS =======================
+
+model Task {
+  id             String   @id @default(cuid())
+  tenantId       String
+  conversationId String?
+  contactId      String?
+  assigneeId     String?
+  title          String
+  description    String?
+  dueAt          DateTime?
+  status         String   @default("pending")
+  createdBy      String
+  createdAt      DateTime @default(now())
+
+  tenant         Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  contact        Contact?      @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  creator        User          @relation("TaskCreator", fields: [createdBy], references: [id])
+  assignee       User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status])
+  @@index([tenantId, assigneeId, dueAt])
+}
+
+// ======================= QUICK REPLIES & AUTOMATION =======================
+
+model QuickReply {
+  id        String   @id @default(cuid())
+  tenantId  String
+  shortcut  String
+  title     String
+  content   String
+  category  String?
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, shortcut])
+}
+
+model AutomationRule {
+  id        String   @id @default(cuid())
+  tenantId  String
+  name      String
+  trigger   String
+  conditions Json
+  actions   Json
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// ======================= CRM SYNC =======================
+
+model CRMConnection {
+  id           String   @id @default(cuid())
+  tenantId     String
+  type         String
+  name         String
+  config       Json     @default("{}")
+  tokens       String   // encrypted
+  fieldMapping Json     @default("{}")
+  status       String   @default("disconnected")
+  lastSyncAt   DateTime?
+  lastError    String?
+  createdAt    DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, type])
+  @@index([tenantId, status])
+}
+
+model CRMSyncLog {
+  id            String   @id @default(cuid())
+  tenantId      String
+  connectionId  String
+  operation     String
+  status        String
+  payload       Json?
+  error         String?
+  createdAt     DateTime @default(now())
+
+  @@index([tenantId, connectionId])
+  @@index([tenantId, createdAt])
+}
+
+// ======================= AI =======================
+
+model AIAction {
+  id             String   @id @default(cuid())
+  tenantId       String
+  userId         String
+  conversationId String?
+  actionType      String
+  input          String   @db.Text
+  output         String   @db.Text
+  confidence     Float    @default(0)
+  approved       Boolean  @default(false)
+  used           Boolean  @default(false)
+  tokensUsed     Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  tenant         Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, actionType])
+  @@index([tenantId, createdAt])
+  @@index([userId, createdAt])
+}
+
+model AIKnowledgeBase {
+  id        String   @id @default(cuid())
+  tenantId  String
+  title     String
+  content   String   @db.Text
+  category  String?
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([tenantId, category])
+}
+
+// ======================= RESELLER =======================
+
+model Reseller {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  companyName    String
+  commissionRate Int      @default(20)
+  branding       Json?
+  payoutDetails  Json?
+  totalClients   Int      @default(0)
+  totalRevenue   Int      @default(0)
+  totalCommission Int     @default(0)
+  createdAt      DateTime @default(now())
+}
+
+model ResellerClient {
+  id          String   @id @default(cuid())
+  resellerId  String
+  tenantId    String   @unique
+  markupRate  Int      @default(0)
+  createdAt   DateTime @default(now())
+}
+
+// ======================= ANALYTICS =======================
+
+model AnalyticsDaily {
+  id                String   @id @default(cuid())
+  tenantId          String
+  date              DateTime @default(dbgenerated("CURRENT_DATE"))
+  newLeads          Int      @default(0)
+  missedLeads       Int      @default(0)
+  hotOpportunities  Int      @default(0)
+  supportFires      Int      @default(0)
+  followUpsDue      Int      @default(0)
+  repliesWaiting    Int      @default(0)
+  revenueAtRisk     Int      @default(0)
+  dealsCreated      Int      @default(0)
+  crmSyncHealth     Int      @default(100)
+  aiActionsSaved    Int      @default(0)
+  avgResponseTimeMin Int     @default(0)
+  clientHappiness   Int      @default(100)
+  messagesReceived  Int      @default(0)
+  messagesSent      Int      @default(0)
+
+  tenant            Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, date])
+  @@index([tenantId, date])
+}
+
+// ======================= AUDIT & SECURITY =======================
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  tenantId    String
+  userId      String?
+  action      String
+  resource    String
+  resourceId  String?
+  details     Json?
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, action])
+  @@index([userId, createdAt])
+}
+
+model SecurityEvent {
+  id          String   @id @default(cuid())
+  tenantId    String?
+  userId      String?
+  eventType   String
+  severity    String   @default("info")
+  description String
+  ip          String?
+  userAgent   String?
+  resolved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId, eventType])
+  @@index([createdAt])
+  @@index([severity])
+}
+
+// ======================= FEATURE FLAGS =======================
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String
+  defaultValue Boolean @default(false)
+  tenantOverrides Json  @default("{}")
+  createdAt   DateTime @default(now())
+}

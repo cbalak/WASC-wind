@@ -1,0 +1,11 @@
+{
+  "name": "@wacc/extension",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}

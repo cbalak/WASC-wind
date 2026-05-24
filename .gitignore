@@ -1,0 +1,15 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
+.vscode/
+.idea/
+.DS_Store
+*.log
+npm-debug.log*
+*.db
+*.db-journal
+apps/backend/prisma/migrations/
