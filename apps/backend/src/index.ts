@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -18,6 +19,7 @@ import extensionRoutes from './routes/extension';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+const webDistPath = path.resolve(__dirname, '..', '..', 'web', 'dist');
 
 // Security middleware
 app.use(helmet());
@@ -55,6 +57,18 @@ app.use('/api/crm', crmRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/extension', extensionRoutes);
+
+app.use(express.static(webDistPath));
+
+app.get('*', (_req, res, next) => {
+  if (_req.path.startsWith('/api/')) {
+    return next();
+  }
+
+  res.sendFile(path.join(webDistPath, 'index.html'), (err) => {
+    if (err) next();
+  });
+});
 
 // Error handler
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
